@@ -1,5 +1,7 @@
 # Interview Practice App
 
+An app to stimulate professional Job Interview and help with Interview prep
+
 ## Overview
 The **Interview Practice App** is a web-based tool that uses **prompt engineering** and the **OpenAI API** to help users prepare for job interviews.  
 It allows for interactive interview simulations, tailored preparation strategies, and customizable question sets — making it a valuable resource for both technical and behavioral interview practice.
@@ -115,7 +117,4 @@ http://localhost:3000` for Next.js.
 GitHub: https://github.com/bondpapi
 
 LinkedIn: https://www.linkedin.com/in/bond-michael/
----
-
-# Interview-App
-An app to stimulate professional Job Interview and help with interview prep
+--- 

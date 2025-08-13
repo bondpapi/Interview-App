@@ -1,26 +1,27 @@
 import os
 import streamlit as st
 from dotenv import load_dotenv
-from openai import OpenAI
+import openai  # legacy SDK
 
+# --- Setup ---
 load_dotenv()
-key = os.getenv("OPENAI_API_KEY") or str(st.secrets.get("OPENAI_API_KEY", "")).strip()
-if not key:
+api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
+if not api_key:
     st.error("OpenAI API key not found. Add OPENAI_API_KEY to your local .env or Streamlit Secrets.")
     st.stop()
+openai.api_key = api_key  # legacy SDK uses global api_key
 
-os.environ["OPENAI_API_KEY"] = key
-client = OpenAI()  # no args; reads from env
+st.set_page_config(page_title="Interview Practice App", page_icon="💼", layout="centered")
 
-
+# (Optional) safe diagnostics – remove later if you like
 with st.expander("Diagnostics (safe)", expanded=False):
     source = "ENV" if os.getenv("OPENAI_API_KEY") else ("SECRETS" if "OPENAI_API_KEY" in st.secrets else "NONE")
-    tail = (os.getenv("OPENAI_API_KEY") or str(st.secrets.get("OPENAI_API_KEY","")))[-4:]
+    tail = (api_key or "")[-4:]
     st.write(f"Key source: **{source}** | Tail: **...{tail}**")
 
 # --- Session state for chat history ---
 if "messages" not in st.session_state:
-    st.session_state.messages = []  # list of {"role": "user"|"assistant", "content": "..."}
+    st.session_state.messages = []  # [{"role":"user"|"assistant","content": "..."}]
 
 # --- Helpers ---
 def load_prompt(file_path: str) -> str:
@@ -38,8 +39,7 @@ def build_transcript_text(system_prompt: str) -> str:
     return "\n".join(lines)
 
 # --- UI: Title + About ---
-st.title(" Interview Practice App")
-
+st.title("💼 Interview Practice App")
 with st.expander("About this app", expanded=False):
     st.markdown(
         """
@@ -68,7 +68,8 @@ selected_prompt_name = st.selectbox("Choose Interview Style", list(prompt_option
 system_prompt = load_prompt(prompt_options[selected_prompt_name])
 
 # --- Inputs ---
-job_description = st.text_area("Job Description (Optional)", height=150, placeholder="Paste a JD to tailor questions/answers…")
+job_description = st.text_area("Job Description (Optional)", height=150,
+                               placeholder="Paste a JD to tailor questions/answers…")
 user_input = st.text_input("Your message (ask a question or say 'ask me a question')")
 
 col1, col2, col3 = st.columns([1, 1, 1])
@@ -84,12 +85,8 @@ if new_session_clicked:
 # --- Download transcript ---
 if download_clicked:
     transcript = build_transcript_text(system_prompt)
-    st.download_button(
-        "Download Now",
-        data=transcript,
-        file_name="interview_transcript.txt",
-        mime="text/plain"
-    )
+    st.download_button("Download Now", data=transcript,
+                       file_name="interview_transcript.txt", mime="text/plain")
 
 # --- Chat logic ---
 if send_clicked:
@@ -99,29 +96,25 @@ if send_clicked:
         # Add the user's message to history
         st.session_state.messages.append({"role": "user", "content": user_input})
 
-        # Build message list for the API: system + history
+        # Build message list for the API: system + optional JD + history
         api_messages = [{"role": "system", "content": system_prompt}]
-
-        # Include job description context if provided (as an assistant note to steer behavior)
         if job_description.strip():
             api_messages.append({
                 "role": "assistant",
                 "content": f"Use the following job description to tailor the interview: {job_description.strip()}"
             })
-
-        # Add prior exchanges
         api_messages.extend(st.session_state.messages)
 
         try:
             with st.spinner("Generating AI response..."):
-                completion = client.chat.completions.create(
+                # LEGACY SDK CALL
+                response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
-                    messages=api_messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
+                    messages=api_messages,
                 )
-                reply = completion.choices[0].message.content
-                # Save assistant reply to history
+                reply = response.choices[0].message["content"]
                 st.session_state.messages.append({"role": "assistant", "content": reply})
         except Exception as e:
             st.error(f"OpenAI error: {e}")
@@ -130,8 +123,4 @@ if send_clicked:
 if st.session_state.messages:
     st.markdown("### Conversation")
     for m in st.session_state.messages:
-        if m["role"] == "user":
-            st.markdown(f"**You:** {m['content']}")
-        else:
-            st.markdown(f"**Assistant:** {m['content']}")
-
+        st.markdown(f"**{'You' if m['role']=='user' else 'Assistant'}:** {m['content']}")

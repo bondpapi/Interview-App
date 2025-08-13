@@ -3,22 +3,26 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# --- Setup: load local .env for dev, and fall back to Streamlit secrets in prod ---
+# --- Load local .env for dev ---
 load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
 
-if not api_key:
+# --- Normalize key into ENV so the SDK reads it the "standard" way ---
+key = os.getenv("OPENAI_API_KEY")
+if not key and "OPENAI_API_KEY" in st.secrets:
+    # Force to str, strip whitespace/newlines just in case
+    key = str(st.secrets["OPENAI_API_KEY"]).strip()
+
+if not key:
     st.error("OpenAI API key not found. Add OPENAI_API_KEY to your local .env or Streamlit Secrets.")
     st.stop()
 
-client = OpenAI(api_key=api_key)
+os.environ["OPENAI_API_KEY"] = key  # <- set env var explicitly
+client = OpenAI()  # <- no arg; SDK will read from env
 
 with st.expander("Diagnostics (safe)", expanded=False):
-    source = "ENV" if os.getenv("OPENAI_API_KEY") else ("SECRETS" if "OPENAI_API_KEY" in st.secrets else "NONE")
-    masked = f"...{api_key[-4:]}" if api_key and len(api_key) >= 4 else "(missing)"
-    st.write(f"Key source: **{source}**")
-    st.write(f"Key present: **{bool(api_key)}**  |  Tail: **{masked}**")
-
+    src = "ENV" if os.getenv("OPENAI_API_KEY") else ("SECRETS" if "OPENAI_API_KEY" in st.secrets else "NONE")
+    tail = os.environ["OPENAI_API_KEY"][-4:]
+    st.write(f"Key source: **{src}** | Present: **True** | Tail: **...{tail}**")
 
 # --- Session state for chat history ---
 if "messages" not in st.session_state:

@@ -2,43 +2,44 @@ import os
 import json
 import streamlit as st
 from dotenv import load_dotenv
-import openai  # legacy SDK
+from openai import OpenAI
 from streamlit_local_storage import LocalStorage
 
-# --- Setup ---
+# --- Setup (env + client) ---
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
 if not api_key:
     st.error("OpenAI API key not found. Add OPENAI_API_KEY to your local .env or Streamlit Secrets.")
     st.stop()
-openai.api_key = api_key
+client = OpenAI(api_key=api_key)
 
 st.set_page_config(page_title="Interview Practice App", page_icon="💼", layout="centered")
 
-# --- Optional Diagnostics ---
+# --- Optional diagnostics (safe) ---
 with st.expander("Diagnostics (safe)", expanded=False):
     source = "ENV" if os.getenv("OPENAI_API_KEY") else ("SECRETS" if "OPENAI_API_KEY" in st.secrets else "NONE")
-    tail = (api_key or "")[-4:]
-    st.write(f"Key source: **{source}** | Tail: **...{tail}**")
+    st.write(f"Key source: **{source}**  |  Present: **{bool(api_key)}**")
 
-# --- Local Storage setup ---
+# --- Local storage persistence ---
 storage = LocalStorage()
 
-# Load existing messages from local storage or session state
 if "messages" not in st.session_state:
-    stored_messages = storage.getItem("interview_messages")
-    if stored_messages:
+    stored = storage.getItem("interview_messages")
+    if stored:
         try:
-            st.session_state.messages = json.loads(stored_messages)
+            st.session_state.messages = json.loads(stored)
         except json.JSONDecodeError:
             st.session_state.messages = []
     else:
         st.session_state.messages = []
 
+def save_messages():
+    storage.setItem("interview_messages", json.dumps(st.session_state.messages))
+
 # --- Helpers ---
-def load_prompt(file_path: str) -> str:
+def load_prompt(path: str) -> str:
     try:
-        with open(file_path, "r") as f:
+        with open(path, "r") as f:
             return f.read().strip()
     except FileNotFoundError:
         return "You are a helpful interview preparation assistant."
@@ -50,39 +51,36 @@ def build_transcript_text(system_prompt: str) -> str:
         lines.append(f"[{who}]: {m['content']}")
     return "\n".join(lines)
 
-def save_messages():
-    storage.setItem("interview_messages", json.dumps(st.session_state.messages))
-
-# --- UI: Title + About ---
+# --- UI ---
 st.title("💼 Interview Practice App")
 with st.expander("About this app", expanded=False):
     st.markdown(
         """
-This app helps you **practice interviews** using OpenAI.
-- Choose an **interview style** (default, technical, behavioral)
-- Paste a **job description** (optional)
-- Ask a question or have the AI ask *you* questions
-- Your **conversation history** is saved for the session and can be **downloaded**
-
-**Tip:** Use the sidebar to tune model creativity (temperature) and response length (max tokens).
+Use this app to **practice interviews** with AI.
+- Choose an interview style (default, technical, behavioral)
+- Optionally paste a job description to tailor the session
+- Messages are **saved** in your browser (local storage)
+- Download a **transcript** anytime
         """
     )
 
-# --- Sidebar: OpenAI settings ---
+# Sidebar settings
 st.sidebar.header("⚙️ OpenAI Settings")
+# (Optional) let user pick a model that works with v1.x client
+model = st.sidebar.selectbox("Model", ["gpt-3.5-turbo", "gpt-4o-mini"], index=0)
 temperature = st.sidebar.slider("Temperature", 0.0, 1.0, 0.7, 0.1)
 max_tokens = st.sidebar.number_input("Max Tokens", min_value=50, max_value=1000, value=300, step=50)
 
-# --- Prompt selection ---
+# Prompt templates
 prompt_options = {
     "Default Prompt": "prompts/base_prompt.txt",
     "Technical Interview": "prompts/technical_prompt.txt",
     "Behavioral Interview": "prompts/behavioral_prompt.txt",
 }
-selected_prompt_name = st.selectbox("Choose Interview Style", list(prompt_options.keys()))
-system_prompt = load_prompt(prompt_options[selected_prompt_name])
+selected_prompt = st.selectbox("Choose Interview Style", list(prompt_options.keys()))
+system_prompt = load_prompt(prompt_options[selected_prompt])
 
-# --- Inputs ---
+# Inputs
 job_description = st.text_area("Job Description (Optional)", height=150,
                                placeholder="Paste a JD to tailor questions/answers…")
 user_input = st.text_input("Your message (ask a question or say 'ask me a question')")
@@ -92,28 +90,28 @@ send_clicked = col1.button("Get Interview Response")
 new_session_clicked = col2.button("Start New Session")
 download_clicked = col3.button("Download Transcript")
 
-# --- New session ---
+# New session
 if new_session_clicked:
     st.session_state.messages.clear()
     storage.removeItem("interview_messages")
     st.success("Started a new session.")
 
-# --- Download transcript ---
+# Download transcript
 if download_clicked:
     transcript = build_transcript_text(system_prompt)
     st.download_button("Download Now", data=transcript,
                        file_name="interview_transcript.txt", mime="text/plain")
 
-# --- Chat logic ---
+# Chat logic (v1.x API)
 if send_clicked:
     if not user_input.strip():
         st.warning("Please enter a message.")
     else:
-        # Add user's message
+        # add user message
         st.session_state.messages.append({"role": "user", "content": user_input})
         save_messages()
 
-        # Build API messages
+        # build message list
         api_messages = [{"role": "system", "content": system_prompt}]
         if job_description.strip():
             api_messages.append({
@@ -124,19 +122,19 @@ if send_clicked:
 
         try:
             with st.spinner("Generating AI response..."):
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
+                completion = client.chat.completions.create(
+                    model=model,
+                    messages=api_messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
-                    messages=api_messages,
                 )
-                reply = response.choices[0].message["content"]
+                reply = completion.choices[0].message.content
                 st.session_state.messages.append({"role": "assistant", "content": reply})
                 save_messages()
         except Exception as e:
             st.error(f"OpenAI error: {e}")
 
-# --- Render chat history ---
+# Render history
 if st.session_state.messages:
     st.markdown("### Conversation")
     for m in st.session_state.messages:

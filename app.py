@@ -1,7 +1,9 @@
 import os
+import json
 import streamlit as st
 from dotenv import load_dotenv
 import openai  # legacy SDK
+from streamlit_local_storage import LocalStorage
 
 # --- Setup ---
 load_dotenv()
@@ -9,19 +11,29 @@ api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
 if not api_key:
     st.error("OpenAI API key not found. Add OPENAI_API_KEY to your local .env or Streamlit Secrets.")
     st.stop()
-openai.api_key = api_key  # legacy SDK uses global api_key
+openai.api_key = api_key
 
 st.set_page_config(page_title="Interview Practice App", page_icon="💼", layout="centered")
 
-# (Optional) safe diagnostics – remove later if you like
+# --- Optional Diagnostics ---
 with st.expander("Diagnostics (safe)", expanded=False):
     source = "ENV" if os.getenv("OPENAI_API_KEY") else ("SECRETS" if "OPENAI_API_KEY" in st.secrets else "NONE")
     tail = (api_key or "")[-4:]
     st.write(f"Key source: **{source}** | Tail: **...{tail}**")
 
-# --- Session state for chat history ---
+# --- Local Storage setup ---
+storage = LocalStorage()
+
+# Load existing messages from local storage or session state
 if "messages" not in st.session_state:
-    st.session_state.messages = []  # [{"role":"user"|"assistant","content": "..."}]
+    stored_messages = storage.getItem("interview_messages")
+    if stored_messages:
+        try:
+            st.session_state.messages = json.loads(stored_messages)
+        except json.JSONDecodeError:
+            st.session_state.messages = []
+    else:
+        st.session_state.messages = []
 
 # --- Helpers ---
 def load_prompt(file_path: str) -> str:
@@ -37,6 +49,9 @@ def build_transcript_text(system_prompt: str) -> str:
         who = "User" if m["role"] == "user" else "Assistant"
         lines.append(f"[{who}]: {m['content']}")
     return "\n".join(lines)
+
+def save_messages():
+    storage.setItem("interview_messages", json.dumps(st.session_state.messages))
 
 # --- UI: Title + About ---
 st.title("💼 Interview Practice App")
@@ -80,6 +95,7 @@ download_clicked = col3.button("Download Transcript")
 # --- New session ---
 if new_session_clicked:
     st.session_state.messages.clear()
+    storage.removeItem("interview_messages")
     st.success("Started a new session.")
 
 # --- Download transcript ---
@@ -93,10 +109,11 @@ if send_clicked:
     if not user_input.strip():
         st.warning("Please enter a message.")
     else:
-        # Add the user's message to history
+        # Add user's message
         st.session_state.messages.append({"role": "user", "content": user_input})
+        save_messages()
 
-        # Build message list for the API: system + optional JD + history
+        # Build API messages
         api_messages = [{"role": "system", "content": system_prompt}]
         if job_description.strip():
             api_messages.append({
@@ -107,7 +124,6 @@ if send_clicked:
 
         try:
             with st.spinner("Generating AI response..."):
-                # LEGACY SDK CALL
                 response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
                     temperature=temperature,
@@ -116,6 +132,7 @@ if send_clicked:
                 )
                 reply = response.choices[0].message["content"]
                 st.session_state.messages.append({"role": "assistant", "content": reply})
+                save_messages()
         except Exception as e:
             st.error(f"OpenAI error: {e}")
 

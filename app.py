@@ -13,6 +13,13 @@ if not api_key:
 
 client = OpenAI(api_key=api_key)
 
+with st.expander("Diagnostics (safe)", expanded=False):
+    source = "ENV" if os.getenv("OPENAI_API_KEY") else ("SECRETS" if "OPENAI_API_KEY" in st.secrets else "NONE")
+    masked = f"...{api_key[-4:]}" if api_key and len(api_key) >= 4 else "(missing)"
+    st.write(f"Key source: **{source}**")
+    st.write(f"Key present: **{bool(api_key)}**  |  Tail: **{masked}**")
+
+
 # --- Session state for chat history ---
 if "messages" not in st.session_state:
     st.session_state.messages = []  # list of {"role": "user"|"assistant", "content": "..."}

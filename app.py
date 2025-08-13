@@ -3,11 +3,15 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
-# --- Setup ---
+# --- Setup: load local .env for dev, and fall back to Streamlit secrets in prod ---
 load_dotenv()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = os.getenv("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
 
-st.set_page_config(page_title="Interview Practice App", page_icon="💼", layout="centered")
+if not api_key:
+    st.error("OpenAI API key not found. Add OPENAI_API_KEY to your local .env or Streamlit Secrets.")
+    st.stop()
+
+client = OpenAI(api_key=api_key)
 
 # --- Session state for chat history ---
 if "messages" not in st.session_state:

@@ -10,7 +10,7 @@ Later, you can continue expanding this app for personal use, professional coachi
 
 ---
 
-## Features
+## ✨ Features
 
 ### Core Features
 - Single-page web application built with **Python (Streamlit)** or **JavaScript (Next.js)**.
@@ -28,34 +28,39 @@ Later, you can continue expanding this app for personal use, professional coachi
 
 ## Advanced Features
 
-### Easy
-- AI critique of the app’s usability, security, and prompt engineering.
-- Domain-specific prompt optimization (IT, finance, HR, etc.).
-- Additional input validation and system prompt verification.
-- Adjustable difficulty levels (easy, medium, hard).
-- Option to choose between concise and detailed AI responses.
-- Automatic interviewer guidelines generation.
-- Mock interviews with different AI “personas” (strict, neutral, friendly).
+- **Interview Styles**  
+  Choose between *Default*, *Technical*, or *Behavioral* interview modes.
 
-### Medium
-- Full OpenAI settings panel for user customization.
-- Multiple structured JSON output formats.
-- Deploy app online for public access.
-- Real-time calculation of prompt cost.
-- Implement improvements from the [OpenAI API documentation](https://platform.openai.com/docs/).
-- Use multiple LLMs (e.g., Gemini, Claude) to validate responses.
-- Attempt “jailbreak” tests on your own app and log results.
-- Add a job description input for tailored preparation (RAG).
-- Allow selection from multiple LLM providers.
-- Creative integration of image generation.
+- **Difficulty Levels**  
+  Pick **Easy**, **Medium**, or **Hard**.  
+  The interviewer adapts tone, depth of questions, and follow-ups.
 
-### Hard
-- Fully functional chatbot experience using Streamlit/React.
-- Deployment to cloud providers (Gemini, AWS, Azure).
-- LangChain-based chains or agents for interview preparation.
-- Vector database integration to detect and avoid duplicate content.
-- Use of open-source LLMs instead of proprietary APIs.
-- Fine-tuning an LLM for interview preparation.
+- **Custom Prompts & Job Descriptions**  
+  Tailor sessions with your own prompts or paste a job description to guide responses.
+
+- **Output Formats**  
+  - Plain text  
+  - JSON (Q&A format)  
+  - JSON (Evaluation with score, strengths, areas to improve)
+
+- **Judge Mode**  
+  Let the AI critique your answers as an evaluator.
+
+- **Jailbreak Tester**  
+  Self-audit suspicious prompts and detect potential **prompt injection** attempts.
+
+- **Cost Estimator**   
+  Estimate token usage and approximate cost per session.
+
+- **Conversation Persistence**  
+  Sessions are stored in memory and can be downloaded as a transcript.
+
+- **Image Generator** *(NEW!)*  
+  - Generate **visual interview posters** from feedback.  
+  - Create **custom diagrams** (e.g., system design sketches).  
+  - Download generated images as PNG.  
+  - Useful for making practice sessions **shareable and visual**.
+
 
 ---
 

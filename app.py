@@ -4,6 +4,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 from streamlit_local_storage import LocalStorage
+import base64
 
 # =========================
 # Setup (env + client)
@@ -106,7 +107,7 @@ DIFFICULTY_RULES = {
 # =========================
 # UI — header
 # =========================
-st.title("💼 Interview Practice App")
+st.title("Interview Practice App")
 with st.expander("About this app", expanded=False):
     st.markdown(
         """
@@ -289,6 +290,61 @@ if send_clicked:
 
         except Exception as e:
             st.error(f"OpenAI error: {e}")
+
+# =========================
+#  Image Generator (experimental)
+# =========================
+with st.expander("Image Generator (Poster / Diagram)", expanded=False):
+    st.write("Create a visual from your interview session (e.g., feedback poster, simple architecture sketch).")
+
+    # 1) Build a helpful default prompt from the last assistant reply
+    last_assistant = next((m["content"] for m in reversed(st.session_state.messages) if m["role"] == "assistant"), "")
+    default_prompt = (
+        "Design a clean, minimal poster that summarizes interview feedback for a candidate.\n"
+        "Style: modern, dark-with-accent, high contrast, simple shapes, few words.\n"
+        "Sections: Title, Strengths (3-5 bullets), Areas to Improve (3-5 bullets).\n"
+        f"Base your content on:\n{last_assistant[:1200] or 'Use generic interview tips if no content is provided.'}\n"
+        "Avoid tiny paragraphs; prefer short bullet labels. No logos. No faces. "
+        "Use abstract shapes or icons; keep text readable."
+    )
+
+    mode = st.radio("Mode", ["Poster from last reply", "Custom prompt"], horizontal=True)
+    prompt_text = st.text_area(
+        "Image prompt",
+        height=180,
+        value=default_prompt if mode == "Poster from last reply" else "",
+        placeholder="Describe the image you want (e.g., 'simple system design diagram for a URL shortener ...')."
+    )
+
+    colA, colB = st.columns(2)
+    size = colA.selectbox("Image size", ["1024x1024", "1024x576", "576x1024"], index=0)
+    n_imgs = colB.slider("How many images?", 1, 4, 1)
+
+    go = st.button("Generate Image(s)")
+    if go:
+        if not prompt_text.strip():
+            st.warning("Please enter a prompt.")
+        else:
+            with st.spinner("Generating image(s)..."):
+                try:
+                    result = client.images.generate(
+                        model="gpt-image-1",
+                        prompt=prompt_text.strip(),
+                        size=size,
+                        n=n_imgs,
+                    )
+                    for i, item in enumerate(result.data, start=1):
+                        img_b64 = item.b64_json
+                        img_bytes = base64.b64decode(img_b64)
+                        st.image(img_bytes, caption=f"Generated #{i}", use_column_width=True)
+                        st.download_button(
+                            f"Download #{i} (PNG)",
+                            data=img_bytes,
+                            file_name=f"interview_image_{i}.png",
+                            mime="image/png"
+                        )
+                except Exception as e:
+                    st.error(f"Image generation error: {e}")
 
 # =========================
 # Jailbreak Tester (self-audit)

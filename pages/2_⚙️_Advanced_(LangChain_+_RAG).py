@@ -175,4 +175,4 @@ if ask_btn and q.strip():
             st.markdown("**Answer:**")
             st.write(ans)
 
-st.info("This page covers: **Hard #1 (full chat via components), #3 (LangChain chains), #4 (vector ‘seen‑before’ check), #5 (open‑source LLM via Ollama, optional).**")
+st.info("This page covers: **Full chat via components, LangChain chains, vector ‘seen‑before’ check, open‑source LLM via Ollama.**")

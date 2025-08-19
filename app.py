@@ -112,7 +112,7 @@ DIFFICULTY_RULES = {
 # =========================
 # UI — header
 # =========================
-st.title("🎤 Interview Practice App")
+st.title("Interview Practice App")
 with st.expander("About this app", expanded=False):
     st.markdown(
         """
